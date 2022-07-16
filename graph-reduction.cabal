@@ -1,0 +1,53 @@
+cabal-version:      3.6
+name:               graph-reduction
+version:            0.1.0.0
+author:             pastchick3
+maintainer:         pastchick3@gmail.com
+extra-source-files:
+    CHANGELOG.md
+    LICENSE
+    README.md
+
+library
+    exposed-modules:
+        Lib,
+        FlDef,
+        FlParser
+    build-depends:
+        base ^>=4.16.2.0,
+        megaparsec ^>=9.2.1
+    hs-source-dirs:   src
+    default-language: GHC2021
+    default-extensions:
+        DuplicateRecordFields,
+        NoFieldSelectors,
+        OverloadedRecordDot
+    ghc-options:      -Wall -O0
+
+executable graph-reduction
+    main-is:          Main.hs
+    build-depends:
+        base ^>=4.16.2.0,
+        optparse-applicative ^>=0.17.0.0,
+        graph-reduction
+    hs-source-dirs:   app
+    default-language: GHC2021
+    default-extensions:
+        DuplicateRecordFields,
+        NoFieldSelectors,
+        OverloadedRecordDot
+    ghc-options:      -Wall -O0
+
+test-suite test
+    type:             exitcode-stdio-1.0
+    main-is:          Main.hs
+    build-depends:
+        base ^>=4.16.2.0,
+        graph-reduction
+    hs-source-dirs:   test
+    default-language: GHC2021
+    default-extensions:
+        DuplicateRecordFields,
+        NoFieldSelectors,
+        OverloadedRecordDot
+    ghc-options:      -Wall -O0
