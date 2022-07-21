@@ -1,9 +1,8 @@
 module Lib (compile) where
 
--- import Parser (parseSExp)
+import FlParser qualified (parse)
 
-compile :: String -> String
--- compile s = case parseSExp s of
---     Left err -> err
---     Right sexp -> show sexp
-compile s = s
+compile :: String -> Either String String
+compile src = do
+    flProg <- FlParser.parse src
+    return $ show flProg

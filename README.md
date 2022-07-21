@@ -3,6 +3,8 @@
 ## FL
 
 ``` EBNF
+-- Comments
+
 <digit> ::= "0"-"9";
 <lower> ::= "a"-"z";
 <upper> ::= "A"-"Z";
@@ -12,12 +14,14 @@
 
 <lower-var> ::= <lower> (<digit> | <lower> | <upper>)*;
 <upper-var> ::= <upper> (<digit> | <lower> | <upper>)*;
+
 <int> ::= ("+" | "-")? <digit>+;
 <char> ::= "'" (<digit> | <lower> | <upper> | " ") "'";
 <bool> ::= "True" | "False";
 <str> ::= "\"" <char>* "\"";
 <list> ::= "[" "]" | "[" <exp> ("," <exp>)* "]";
 <tuple> ::= "(" <exp> ("," <exp>)* ")";
+
 <pat> ::= <lower-var>
     | <int>
     | <char>
@@ -27,22 +31,25 @@
     | <pat> (":" <pat>)+
     | <pat> ("," <pat>)+
     | <upper-var> <pat>*;
+
 <type> ::= <lower-var>
     |"Int"
     | "Char"
     | "Bool"
+    | "String"
     | "[" <type> "]"
     | "(" <type> ("," <type>)+ ")"
     | <type> ("->" <type>)+;
 
-<list-comp> ::= "[" <exp> "|" <qual> ("," <qual>)* "]";
-<qual> ::= <exp> | <pat> "<-" <exp>;
+<list-comp> ::= "[" <exp> "|" <qual-cl> ("," <qual-cl>)* "]";
+<qual-cl> ::= <exp> | <pat> "<-" <exp>;
 <case> ::= "case" <exp> "of" <case-cl>+ "where" <var-def>+;
 <case-cl> ::= <pat> (<guard-cl>? "->" <exp>)+;
-<guard-cl> ::= "|" <exp>;
 <func> ::= <lower-var> <func-cl>+;
-<func-cl> ::= <pat>* (<guard-cl>? "=" <exp>)+;
+<func-cl> ::= <pat>+ (<guard-cl>? "=" <exp>)+;
+<guard-cl> ::= "|" <exp>;
 <func-app> ::= <exp> <exp>;
+
 <exp> ::= <lower-var>
     | <int>
     | <char>

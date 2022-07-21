@@ -1,10 +1,14 @@
 module FlDef where
 
-data PrefixOp = Not | Neg
-data InfixOp = Plus | Minus | Mul | Div | Eq | NotEq | Ls | Gt | Lse | Gte | And | Or | Concat | Cons | Index
+data PrefixOp = Not | Neg deriving (Eq, Show)
 
-newtype LowerVar = LowerVar String
-newtype UpperVar = UpperVar String
+data InfixOp = Plus | Minus | Mul | Div | Eq | NotEq | Ls | Gt | Lse | Gte | And | Or | Concat | Cons | Index deriving (Eq, Show)
+
+newtype LowerVar = LowerVar String deriving (Eq, Show)
+
+newtype UpperVar = UpperVar String deriving (Eq, Show)
+
+data Ctor a = Ctor UpperVar [a] deriving (Eq, Show)
 
 data Pat
     = PatVar LowerVar
@@ -12,23 +16,30 @@ data Pat
     | PatChar Char
     | PatBool Bool
     | PatStr String
-    | PatNil
     | PatList [Pat]
     | PatTuple [Pat]
-    | PatCtor UpperVar [Pat]
+    | PatCtor (Ctor Pat)
+    deriving (Eq, Show)
+
 data Type
     = TyVar LowerVar
     | TyInt
     | TyChar
     | TyBool
+    | TyStr
     | TyList Type
     | TyTuple [Type]
     | TyFunc [Type]
+    deriving (Eq, Show)
 
-data QualCl = Guard Exp | Gen Pat Exp
-data CaseCl = CaseCl {pat :: Pat, guards :: [GuardCl]}
-data FuncCl = FuncCl {args :: [Pat], guards :: [GuardCl]}
-data GuardCl = GuardCl (Maybe Exp) Exp
+data QualCl = Guard Exp | Gen Pat Exp deriving (Eq, Show)
+
+data CaseCl = CaseCl Pat [GuardCl] deriving (Eq, Show)
+
+data FuncCl = FuncCl [Pat] [GuardCl] deriving (Eq, Show)
+
+data GuardCl = GuardCl (Maybe Exp) Exp deriving (Eq, Show)
+
 data Exp
     = ExpVar LowerVar
     | ExpInt Int
@@ -38,15 +49,18 @@ data Exp
     | ExpList [Exp]
     | ExpTuple [Exp]
     | ExpListComp Exp [QualCl]
-    | ExpCase {exp :: Exp, cases :: [CaseCl], defs :: [Def]}
-    | ExpFunc {name :: LowerVar, clauses :: [FuncCl]}
-    | ExpFuncApp {func :: Exp, arg :: Exp}
+    | ExpCase Exp [CaseCl] [Def]
+    | ExpFunc LowerVar [FuncCl]
+    | ExpFuncApp Exp Exp
     | ExpPrefix PrefixOp Exp
     | ExpInfix Exp InfixOp Exp
-    | ExpAdt UpperVar [Exp]
+    | ExpAdt (Ctor Exp)
+    deriving (Eq, Show)
 
 data Def
     = DefType LowerVar Type
-    | DefAdt {name :: UpperVar, tyVars :: [Type], ctors :: [(UpperVar, [Type])]}
+    | DefAdt UpperVar [Type] [Ctor Type]
     | DefVar Pat Exp
-data Prog = Prog [Def] Exp
+    deriving (Eq, Show)
+
+data Prog = Prog [Def] Exp deriving (Eq, Show)

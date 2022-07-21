@@ -1,6 +1,5 @@
 module Main where
 
-
 -- import FlParser (parse)
 import System.Exit (exitFailure, exitSuccess)
 
