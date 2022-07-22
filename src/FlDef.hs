@@ -41,26 +41,27 @@ data FuncCl = FuncCl [Pat] [GuardCl] deriving (Eq, Show)
 data GuardCl = GuardCl (Maybe Exp) Exp deriving (Eq, Show)
 
 data Exp
-    = ExpVar LowerVar
+    = ExpGroup Exp
+    | ExpVar LowerVar
     | ExpInt Int
     | ExpChar Char
     | ExpBool Bool
     | ExpStr String
     | ExpList [Exp]
     | ExpTuple [Exp]
+    | ExpAdt (Ctor Exp)
     | ExpListComp Exp [QualCl]
     | ExpCase Exp [CaseCl] [Def]
     | ExpFunc LowerVar [FuncCl]
     | ExpFuncApp Exp Exp
     | ExpPrefix PrefixOp Exp
-    | ExpInfix Exp InfixOp Exp
-    | ExpAdt (Ctor Exp)
+    | ExpInfix InfixOp Exp Exp
     deriving (Eq, Show)
 
 data Def
-    = DefType LowerVar Type
-    | DefAdt UpperVar [Type] [Ctor Type]
+    = DefAdt UpperVar [Type] [Ctor Type]
+    | DefType LowerVar Type
     | DefVar Pat Exp
     deriving (Eq, Show)
 
-data Prog = Prog [Def] Exp deriving (Eq, Show)
+newtype Prog = Prog [Def] deriving (Eq, Show)

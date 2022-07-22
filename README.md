@@ -3,8 +3,6 @@
 ## FL
 
 ``` EBNF
--- Comments
-
 <digit> ::= "0"-"9";
 <lower> ::= "a"-"z";
 <upper> ::= "A"-"Z";
@@ -44,40 +42,40 @@
 <list-comp> ::= "[" <exp> "|" <qual-cl> ("," <qual-cl>)* "]";
 <qual-cl> ::= <exp> | <pat> "<-" <exp>;
 <case> ::= "case" <exp> "of" <case-cl>+ "where" <var-def>+;
-<case-cl> ::= <pat> (<guard-cl>? "->" <exp>)+;
+<case-cl> ::= <pat> (("|" <exp>)? "->" <exp>)+;
 <func> ::= <lower-var> <func-cl>+;
-<func-cl> ::= <pat>+ (<guard-cl>? "=" <exp>)+;
-<guard-cl> ::= "|" <exp>;
-<func-app> ::= <exp> <exp>;
+<func-cl> ::= <pat>+ (("|" <exp>)? "=" <exp>)+;
+<func-app> :: <exp> <exp>;
 
-<exp> ::= <lower-var>
+<exp> ::= "(" <exp> ")"
+    | <lower-var>
     | <int>
     | <char>
     | <bool>
     | <str>
     | <list>
     | <tuple>
+    | <upper-var> <exp>*
     | <list-comp>
     | <case>
     | <func>
     | <func-app>
     | <prefix-op> <exp>
-    | <exp> <infix-op> <exp>
-    | <upper-var> <exp>*;
+    | <exp> <infix-op> <exp>;
 
-<type-def> ::= <lower-var> "::" <type>;
 <adt-def> ::= "data" <upper-var> <type>* "=" <upper-var> <type>* ("|" <upper-var> <type>*)*;
+<type-def> ::= <lower-var> "::" <type>;
 <var-def> ::= <pat> "=" <exp>;
 
-<def> ::= <type-def> | <adt-def> | <var-def>;
-<prog> ::= <def>* <exp>;
+<def> ::= <adt-def> | <type-def> | <var-def>;
+<prog> ::= <def>+;
 ```
 
 | Precedence | Left associative operators | Non-associative operators | Right associative operators |
 | --- | --- | --- | --- |
-| 9 | !! | | |
+| 9 | !!, not | | |
 | 7 | *, / | | |
-| 6 | +, - (both prefix and infix), not | | |
+| 6 | +, - (both prefix and infix) | | |
 | 5 | | | :, ++|
 | 4 | | ==, /=, <, <=, >, >= | |
 | 3 | | | && |
