@@ -15,12 +15,12 @@ paths =
 
 main :: IO ()
 main = do
-    Paths{input, output} <- execParser opts
+    Paths{input, output} <- execParser options
     let asmOutput = fromMaybe (toAsmOutput input) output
     src <- readFile input
     case compile src of
         Left err -> hPutStrLn stderr ("Error: " ++ err)
         Right asm -> writeFile asmOutput asm
   where
-    opts = info (paths <**> helper) idm
+    options = info (paths <**> helper) idm
     toAsmOutput input = reverse $ ("s" ++) $ dropWhile ('.' /=) $ reverse input

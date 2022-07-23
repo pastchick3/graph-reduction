@@ -42,6 +42,9 @@ executable graph-reduction
 test-suite test
     type:             exitcode-stdio-1.0
     main-is:          Main.hs
+    other-modules:
+        TestRunner,
+        TestFlParser
     build-depends:
         base ^>=4.16.2.0,
         graph-reduction

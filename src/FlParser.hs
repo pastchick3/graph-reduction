@@ -1,7 +1,7 @@
 -- {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module FlParser (parse) where
+module FlParser (parseFl) where
 
 import FlDef qualified as Fl
 
@@ -19,7 +19,7 @@ type Parser = Parsec Void String
 flSeq :: Parser a -> String -> Parser [a]
 flSeq p s = ((:) <$> p) <*> many (sep *> p)
   where
-    sep = space *> string s *> space
+    sep = hspace *> string s *> hspace
 
 flGroupSeq :: Char -> Parser a -> Char -> Char -> Parser [a]
 flGroupSeq s p c e =
@@ -29,11 +29,11 @@ flGroupSeq s p c e =
             , flSeq p [c] <* end
             ]
   where
-    start = char s *> space
-    end = space <* char e
+    start = char s *> hspace
+    end = hspace <* char e
 
 flCtor :: Parser a -> Parser (Fl.Ctor a)
-flCtor p = Fl.Ctor <$> flUpperVar <*> many (space *> p)
+flCtor p = Fl.Ctor <$> flUpperVar <*> many (hspace *> p)
 
 flLowerVar :: Parser Fl.LowerVar
 flLowerVar = Fl.LowerVar <$> ((:) <$> lowerChar <*> many alphaNumChar)
@@ -65,7 +65,7 @@ flPat =
         , Fl.PatTuple <$> flGroupSeq '(' flPat ',' ')'
         , Fl.PatCtor <$> flCtor flPat
         ]
-        <* space
+        <* hspace
 
 flType :: Parser Fl.Type
 flType =
@@ -79,7 +79,7 @@ flType =
         , Fl.TyTuple <$> flGroupSeq '(' flType ',' ')'
         , Fl.TyFunc <$> flSeq flType "->"
         ]
-        <* space
+        <* hspace
 
 flQualCl :: Parser Fl.QualCl
 flQualCl =
@@ -88,35 +88,35 @@ flQualCl =
         , Fl.Gen <$> flPat <* sep <*> flExp
         ]
   where
-    sep = space <* string "<-" <* space
+    sep = hspace <* string "<-" <* hspace
 
 flCaseCl :: Parser Fl.CaseCl
 flCaseCl =
     Fl.CaseCl
         <$> flPat
-        <*> many (space *> flGuardCl "->")
+        <*> many (hspace *> flGuardCl "->")
 
 flFuncCl :: Parser Fl.FuncCl
 flFuncCl =
     Fl.FuncCl
         <$> many flPat
-        <*> many (space *> flGuardCl "=")
+        <*> many (hspace *> flGuardCl "=")
 
 flGuardCl :: String -> Parser Fl.GuardCl
 flGuardCl s = Fl.GuardCl <$> guard <* sep <*> flExp
   where
     guard = optional $ char '|' *> flExp
-    sep = space <* string s <* space
+    sep = hspace <* string s <* hspace
 
 flExp_ :: Parser Fl.Exp
 flExp_ = do
-    x : xs <- some (space *> flExp__)
+    x : xs <- some (hspace *> flExp__)
     return $ foldl' Fl.ExpFuncApp x xs
 
 flExp__ :: Parser Fl.Exp
 flExp__ =
     choice
-        [ try $ Fl.ExpGroup <$ char '(' <* space <*> flExp <* space <* char ')'
+        [ try $ Fl.ExpGroup <$ char '(' <* hspace <*> flExp <* hspace <* char ')'
         , Fl.ExpVar <$> flLowerVar
         , Fl.ExpInt <$> flInt
         , Fl.ExpChar <$> flChar
@@ -125,11 +125,11 @@ flExp__ =
         , try $ Fl.ExpList <$> flGroupSeq '[' flExp ',' ']'
         , Fl.ExpTuple <$> flGroupSeq '(' flExp ',' ')'
         , Fl.ExpAdt <$> flCtor flExp
-        , Fl.ExpListComp <$ char '[' <* space <*> flExp <* space <* char '|' <* space <*> flSeq flQualCl "," <* space <* char ']'
-        , Fl.ExpCase <$ string "case" <* space <*> flExp <* space <* string "of" <* space <*> many flCaseCl <* space <* string "where" <* space <*> many flDef
+        , Fl.ExpListComp <$ char '[' <* hspace <*> flExp <* hspace <* char '|' <* hspace <*> flSeq flQualCl "," <* hspace <* char ']'
+        , Fl.ExpCase <$ string "case" <* hspace <*> flExp <* hspace <* string "of" <* hspace <*> many flCaseCl <* hspace <* string "where" <* hspace <*> many flDef
         , Fl.ExpFunc <$> flLowerVar <*> many flFuncCl
         ]
-        <* space
+        <* hspace
 
 flExp :: Parser Fl.Exp
 flExp = makeExprParser flExp_ table
@@ -145,8 +145,8 @@ table =
         , InfixL $ Fl.ExpInfix Fl.Div <$ op "/"
         ]
     ,
-        [ InfixL $ Fl.ExpInfix Fl.Plus <$ space <* char '+' <* space
-        , InfixL $ Fl.ExpInfix Fl.Minus <$ space <* char '-' <* space
+        [ InfixL $ Fl.ExpInfix Fl.Plus <$ hspace <* char '+' <* hspace
+        , InfixL $ Fl.ExpInfix Fl.Minus <$ hspace <* char '-' <* hspace
         , Prefix $ Fl.ExpPrefix Fl.Neg <$ op "-"
         ]
     ,
@@ -169,19 +169,19 @@ table =
         ]
     ]
   where
-    op s = space <* string s <* space
+    op s = hspace <* string s <* hspace
 
 flDef :: Parser Fl.Def
 flDef =
     choice
-        [ Fl.DefAdt <$> flUpperVar <*> many (space *> flType) <* space <* string "=" <* space <*> many (space *> flCtor flType)
-        , try $ Fl.DefType <$> flLowerVar <* space <* string "::" <* space <*> flType
-        , Fl.DefVar <$> flPat <* space <* string "=" <*> flExp
+        [ Fl.DefAdt <$ string "data" <* hspace <*> flUpperVar <*> many (hspace *> flType) <* hspace <* string "=" <* hspace <*> many (hspace *> flCtor flType)
+        , try $ Fl.DefType <$> flLowerVar <* hspace <* string "::" <* hspace <*> flType
+        , Fl.DefVar <$> flPat <* hspace <* string "=" <* hspace <*> flExp
         ]
         <* space
 
 flProg :: Parser Fl.Prog
-flProg = Fl.Prog <$> many flDef <* space
+flProg = Fl.Prog <$> many flDef <* hspace
 
-parse :: String -> Either String Fl.Prog
-parse src = first errorBundlePretty (M.parse (space *> flProg <* eof) "" src)
+parseFl :: String -> Either String Fl.Prog
+parseFl src = first errorBundlePretty (M.parse (hspace *> flProg <* eof) "" src)

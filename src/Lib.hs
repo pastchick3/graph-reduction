@@ -1,8 +1,8 @@
 module Lib (compile) where
 
-import FlParser qualified (parse)
+import FlParser (parseFl)
 
 compile :: String -> Either String String
 compile src = do
-    flProg <- FlParser.parse src
+    flProg <- parseFl src
     return $ show flProg

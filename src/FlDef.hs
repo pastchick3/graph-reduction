@@ -2,7 +2,7 @@ module FlDef where
 
 data PrefixOp = Not | Neg deriving (Eq, Show)
 
-data InfixOp = Plus | Minus | Mul | Div | Eq | NotEq | Ls | Gt | Lse | Gte | And | Or | Concat | Cons | Index deriving (Eq, Show)
+data InfixOp = Plus | Minus | Mul | Div | Eq | NotEq | Ls  | Lse | Gt | Gte | And | Or | Concat | Cons | Index deriving (Eq, Show)
 
 newtype LowerVar = LowerVar String deriving (Eq, Show)
 

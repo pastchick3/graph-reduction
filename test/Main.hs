@@ -1,12 +1,9 @@
 module Main where
 
-import FlDef qualified as Fl
-import FlParser qualified (parse)
-import System.Exit (exitFailure, exitSuccess)
-import System.IO (hPutStrLn, stderr)
-import TestFlParser
+import System.Exit (exitSuccess)
+import TestFlParser (testFlParser)
 
 main :: IO ()
 main = do
-  testFlParser1
+  testFlParser
   exitSuccess
