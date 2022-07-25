@@ -16,6 +16,14 @@ import Text.Megaparsec.Char.Lexer qualified as L
 
 type Parser = Parsec Void String
 
+flKeyword :: Parser String
+flKeyword =
+    choice
+        [ string "case"
+        , string "of"
+        , string "where"
+        ]
+
 flSeq :: Parser a -> String -> Parser [a]
 flSeq p s = ((:) <$> p) <*> many (sep *> p)
   where
@@ -33,10 +41,10 @@ flGroupSeq s p c e =
     end = hspace <* char e
 
 flCtor :: Parser a -> Parser (Fl.Ctor a)
-flCtor p = Fl.Ctor <$> flUpperVar <*> many (hspace *> p)
+flCtor p = Fl.Ctor <$> flUpperVar <* hspace <*> many (hspace *> p)
 
 flLowerVar :: Parser Fl.LowerVar
-flLowerVar = Fl.LowerVar <$> ((:) <$> lowerChar <*> many alphaNumChar)
+flLowerVar = notFollowedBy flKeyword >> Fl.LowerVar <$> ((:) <$> lowerChar <*> many alphaNumChar)
 
 flUpperVar :: Parser Fl.UpperVar
 flUpperVar = Fl.UpperVar <$> ((:) <$> upperChar <*> many alphaNumChar)
@@ -45,7 +53,7 @@ flInt :: Parser Int
 flInt = L.decimal
 
 flChar :: Parser Char
-flChar = char '\'' *> alphaNumChar <|> char ' ' <* char '\''
+flChar = char '\'' *> (alphaNumChar <|> char ' ') <* char '\''
 
 flBool :: Parser Bool
 flBool = True <$ string "True" <|> False <$ string "False"
@@ -84,8 +92,8 @@ flType =
 flQualCl :: Parser Fl.QualCl
 flQualCl =
     choice
-        [ Fl.Guard <$> flExp
-        , Fl.Gen <$> flPat <* sep <*> flExp
+        [ try $ Fl.Gen <$> flPat <* sep <*> flExp
+        , Fl.Guard <$> flExp
         ]
   where
     sep = hspace <* string "<-" <* hspace
@@ -94,18 +102,13 @@ flCaseCl :: Parser Fl.CaseCl
 flCaseCl =
     Fl.CaseCl
         <$> flPat
-        <*> many (hspace *> flGuardCl "->")
-
-flFuncCl :: Parser Fl.FuncCl
-flFuncCl =
-    Fl.FuncCl
-        <$> many flPat
-        <*> many (hspace *> flGuardCl "=")
+        <* hspace
+        <*> many (flGuardCl "->")
 
 flGuardCl :: String -> Parser Fl.GuardCl
-flGuardCl s = Fl.GuardCl <$> guard <* sep <*> flExp
+flGuardCl s = Fl.GuardCl <$> guard <* sep <*> flExp <* space
   where
-    guard = optional $ char '|' *> flExp
+    guard = optional $ char '|' *> hspace *> flExp
     sep = hspace <* string s <* hspace
 
 flExp_ :: Parser Fl.Exp
@@ -116,7 +119,8 @@ flExp_ = do
 flExp__ :: Parser Fl.Exp
 flExp__ =
     choice
-        [ try $ Fl.ExpGroup <$ char '(' <* hspace <*> flExp <* hspace <* char ')'
+        [ 
+        try $ Fl.ExpGroup <$ char '(' <* hspace <*> flExp <* hspace <* char ')'
         , Fl.ExpVar <$> flLowerVar
         , Fl.ExpInt <$> flInt
         , Fl.ExpChar <$> flChar
@@ -126,8 +130,7 @@ flExp__ =
         , Fl.ExpTuple <$> flGroupSeq '(' flExp ',' ')'
         , Fl.ExpAdt <$> flCtor flExp
         , Fl.ExpListComp <$ char '[' <* hspace <*> flExp <* hspace <* char '|' <* hspace <*> flSeq flQualCl "," <* hspace <* char ']'
-        , Fl.ExpCase <$ string "case" <* hspace <*> flExp <* hspace <* string "of" <* hspace <*> many flCaseCl <* hspace <* string "where" <* hspace <*> many flDef
-        , Fl.ExpFunc <$> flLowerVar <*> many flFuncCl
+        , Fl.ExpCase <$ string "case" <* hspace <*> flExp <* hspace <* string "of" <* space <*> some flCaseCl <* string "where" <* space <*> many flDef
         ]
         <* hspace
 
@@ -145,8 +148,8 @@ table =
         , InfixL $ Fl.ExpInfix Fl.Div <$ op "/"
         ]
     ,
-        [ InfixL $ Fl.ExpInfix Fl.Plus <$ hspace <* char '+' <* hspace
-        , InfixL $ Fl.ExpInfix Fl.Minus <$ hspace <* char '-' <* hspace
+        [ InfixL $ Fl.ExpInfix Fl.Plus <$ op "+"
+        , InfixL $ Fl.ExpInfix Fl.Minus <$ hspace <* notFollowedBy (string "->") <* char '-' <* hspace
         , Prefix $ Fl.ExpPrefix Fl.Neg <$ op "-"
         ]
     ,
@@ -172,11 +175,12 @@ table =
     op s = hspace <* string s <* hspace
 
 flDef :: Parser Fl.Def
-flDef =
+flDef = 
     choice
         [ Fl.DefAdt <$ string "data" <* hspace <*> flUpperVar <*> many (hspace *> flType) <* hspace <* string "=" <* hspace <*> many (hspace *> flCtor flType)
         , try $ Fl.DefType <$> flLowerVar <* hspace <* string "::" <* hspace <*> flType
-        , Fl.DefVar <$> flPat <* hspace <* string "=" <* hspace <*> flExp
+        , try $ Fl.DefVar <$> flPat <* hspace <* char '=' <* hspace <*> flExp
+        , Fl.DefFunc <$ hspace <*> flLowerVar <*> many (hspace *> flPat)   <*> some (flGuardCl "=")
         ]
         <* space
 

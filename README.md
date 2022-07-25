@@ -40,11 +40,9 @@
     | <type> ("->" <type>)+;
 
 <list-comp> ::= "[" <exp> "|" <qual-cl> ("," <qual-cl>)* "]";
-<qual-cl> ::= <exp> | <pat> "<-" <exp>;
+<qual-cl> ::= <pat> "<-" <exp> | <exp>;
 <case> ::= "case" <exp> "of" <case-cl>+ "where" <var-def>+;
 <case-cl> ::= <pat> (("|" <exp>)? "->" <exp>)+;
-<func> ::= <lower-var> <func-cl>+;
-<func-cl> ::= <pat>+ (("|" <exp>)? "=" <exp>)+;
 <func-app> :: <exp> <exp>;
 
 <exp> ::= "(" <exp> ")"
@@ -58,7 +56,6 @@
     | <upper-var> <exp>*
     | <list-comp>
     | <case>
-    | <func>
     | <func-app>
     | <prefix-op> <exp>
     | <exp> <infix-op> <exp>;
@@ -66,8 +63,9 @@
 <adt-def> ::= "data" <upper-var> <type>* "=" <upper-var> <type>* ("|" <upper-var> <type>*)*;
 <type-def> ::= <lower-var> "::" <type>;
 <var-def> ::= <pat> "=" <exp>;
+<func-def> ::= <lower-var> <pat>+ (("|" <exp>)? "=" <exp>)+;
 
-<def> ::= <adt-def> | <type-def> | <var-def>;
+<def> ::= <adt-def> | <type-def> | <var-def> | <func-def>;
 <prog> ::= <def>+;
 ```
 
