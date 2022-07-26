@@ -71,8 +71,8 @@ testFlParser = do
                     ]
                     [DefVar (PatVar (LowerVar "a")) (ExpInt 1)]
                 )
-            -- , DefFunc (LowerVar "f") [PatVar (LowerVar "a")] [GuardCl Nothing (ExpInt 1)]
-            -- , DefFunc (LowerVar "f") [PatVar (LowerVar "a")] [GuardCl (Just (ExpBool True)) (ExpInt 1)]
+            , DefFunc (LowerVar "f") [PatVar (LowerVar "a")] [GuardCl Nothing (ExpInt 1)]
+            , DefFunc (LowerVar "f") [PatVar (LowerVar "a")] [GuardCl (Just (ExpBool True)) (ExpInt 1)]
             , DefVar (PatVar (LowerVar "a")) (ExpFuncApp (ExpVar (LowerVar "f")) (ExpInt 1))
             ]
         )
@@ -91,22 +91,42 @@ testFlParser = do
         ( Prog
             [ DefVar (PatVar (LowerVar "a")) (ExpInfix Minus (ExpInfix Plus (ExpPrefix Neg (ExpInt 1)) (ExpInt 1)) (ExpInfix Div (ExpInfix Mul (ExpInt 1) (ExpInt 1)) (ExpInt 1)))
             , DefVar (PatVar (LowerVar "a")) (ExpInfix Eq (ExpInt 1) (ExpInt 1))
+            , DefVar (PatVar (LowerVar "a")) (ExpInfix NotEq (ExpInt 1) (ExpInt 1))
+            , DefVar (PatVar (LowerVar "a")) (ExpInfix Ls (ExpInt 1) (ExpInt 1))
+            , DefVar (PatVar (LowerVar "a")) (ExpInfix Lse (ExpInt 1) (ExpInt 1))
+            , DefVar (PatVar (LowerVar "a")) (ExpInfix Gt (ExpInt 1) (ExpInt 1))
+            , DefVar (PatVar (LowerVar "a")) (ExpInfix Gte (ExpInt 1) (ExpInt 1))
+            , DefVar (PatVar (LowerVar "a")) (ExpInfix Or (ExpInfix And (ExpBool True) (ExpPrefix Not (ExpBool True))) (ExpBool True))
+            , DefVar (PatVar (LowerVar "a")) (ExpInfix Index (ExpGroup (ExpInfix Cons (ExpInt 1) (ExpInfix Concat (ExpList []) (ExpList [])))) (ExpInt 0))
             ]
         )
--- runFlParserTest
---     "\
---     \ a :: a             \n\
---     \ a :: Int           \n\
---     \ a :: Char          \n\
---     \ a :: Bool          \n\
---     \ a :: String        \n\
---     \ a :: [Int]         \n\
---     \ a :: (Int, Int)    \n\
---     \ a :: Int -> Int    \n\
---     \ data T = A         \n\
---     \ data T a = A a | B \n\
---     \"
---     ( Prog
---         [ DefVar (PatVar (LowerVar "a")) (ExpVar (LowerVar "a"))
---         ]
---     )
+    runFlParserTest
+        "\
+        \ a :: (a)                 \n\
+        \ a :: a                   \n\
+        \ a :: Int                 \n\
+        \ a :: Char                \n\
+        \ a :: Bool                \n\
+        \ a :: String              \n\
+        \ a :: [Int]               \n\
+        \ a :: (Int, Int)          \n\
+        \ a :: Int -> Int          \n\
+        \ a :: (Int -> Int) -> Int \n\
+        \ data T = A               \n\
+        \ data T a = A a | B       \n\
+        \"
+        ( Prog
+            [ DefType (LowerVar "a") (TyGroup (TyVar (LowerVar "a")))
+            , DefType (LowerVar "a") (TyVar (LowerVar "a"))
+            , DefType (LowerVar "a") TyInt
+            , DefType (LowerVar "a") TyChar
+            , DefType (LowerVar "a") TyBool
+            , DefType (LowerVar "a") TyStr
+            , DefType (LowerVar "a") (TyList TyInt)
+            , DefType (LowerVar "a") (TyTuple [TyInt,TyInt])
+            , DefType (LowerVar "a") (TyFunc [TyInt,TyInt])
+            , DefType (LowerVar "a") (TyFunc [TyGroup (TyFunc [TyInt,TyInt]),TyInt])
+            , DefAdt (UpperVar "T") [] [Ctor (UpperVar "A") []]
+            , DefAdt (UpperVar "T") [TyVar (LowerVar "a")] [Ctor (UpperVar "A") [TyVar (LowerVar "a")],Ctor (UpperVar "B") []]
+            ]
+        )

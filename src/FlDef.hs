@@ -22,7 +22,8 @@ data Pat
     deriving (Eq, Show)
 
 data Type
-    = TyVar LowerVar
+    = TyGroup Type
+    | TyVar LowerVar
     | TyInt
     | TyChar
     | TyBool
@@ -49,7 +50,7 @@ data Exp
     | ExpTuple [Exp]
     | ExpAdt (Ctor Exp)
     | ExpListComp Exp [QualCl]
-    | ExpCase Exp [CaseCl] [Def]
+    | ExpCase Exp [CaseCl]
     | ExpFuncApp Exp Exp
     | ExpPrefix PrefixOp Exp
     | ExpInfix InfixOp Exp Exp
@@ -59,7 +60,7 @@ data Def
     = DefAdt UpperVar [Type] [Ctor Type]
     | DefType LowerVar Type
     | DefVar Pat Exp
-    | DefFunc LowerVar [Pat] [GuardCl]
+    | DefFunc LowerVar [Pat] [GuardCl] [Def]
     deriving (Eq, Show)
 
 newtype Prog = Prog [Def] deriving (Eq, Show)

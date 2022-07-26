@@ -30,7 +30,8 @@
     | <pat> ("," <pat>)+
     | <upper-var> <pat>*;
 
-<type> ::= <lower-var>
+<type> ::= "(" <type> ")"
+    | <lower-var>
     |"Int"
     | "Char"
     | "Bool"
@@ -41,7 +42,7 @@
 
 <list-comp> ::= "[" <exp> "|" <qual-cl> ("," <qual-cl>)* "]";
 <qual-cl> ::= <pat> "<-" <exp> | <exp>;
-<case> ::= "case" <exp> "of" <case-cl>+ "where" <var-def>+;
+<case> ::= "case" <exp> "of" <case-cl>+;
 <case-cl> ::= <pat> (("|" <exp>)? "->" <exp>)+;
 <func-app> :: <exp> <exp>;
 
@@ -63,7 +64,7 @@
 <adt-def> ::= "data" <upper-var> <type>* "=" <upper-var> <type>* ("|" <upper-var> <type>*)*;
 <type-def> ::= <lower-var> "::" <type>;
 <var-def> ::= <pat> "=" <exp>;
-<func-def> ::= <lower-var> <pat>+ (("|" <exp>)? "=" <exp>)+;
+<func-def> ::= <lower-var> <pat>+ (("|" <exp>)? "=" <exp>)+ "where" <var-def>+;
 
 <def> ::= <adt-def> | <type-def> | <var-def> | <func-def>;
 <prog> ::= <def>+;
