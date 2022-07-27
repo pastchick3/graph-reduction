@@ -1,6 +1,6 @@
 # A Functional Programming Langauge based on Graph Reduction
 
-## FL
+## Functional Language
 
 ``` EBNF
 <digit> ::= "0"-"9";
@@ -81,22 +81,31 @@
 | 3 | | | && |
 | 2 | | | \|\| |
 
-## Enriched Lambda Expressions
+## Enriched Lambda Calculus
 
 ``` EBNF
-<const> ::= <int>
+<pat> ::= <lower-var>
+    | <int>
     | <char>
     | <bool>
-    | <str>;
-<ctor> ::= "Nil"
-    | "Cons"
-    | "Tuple2"-"Tuple4"
-    | <upper-var>;
-<pat> ::= <const>
-    | <lower-var>
-    | <ctor> <pat>*;
-<exp> ::= <const>
-    | <lower-var>
+    | <str>
+    | "Nil"
+    | "Cons" <pat> <pat>
+    | "Tuple2" <pat> <pat>
+    | "Tuple3" <pat> <pat> <pat>
+    | "Tuple4" <pat> <pat> <pat> <pat>
+    | <upper-var> <pat>*;
+<exp> ::= <lower-var>
+    | <int>
+    | <char>
+    | <bool>
+    | <str>
+    | "Nil"
+    | "Cons" <exp> <exp>
+    | "Tuple2" <exp> <exp>
+    | "Tuple3" <exp> <exp> <exp>
+    | "Tuple4" <exp> <exp> <exp> <exp>
+    | <upper-var> <pat>*
     | <prefix-op> <exp>
     | <exp> <infix-op> <exp>
     | <exp> <exp>
@@ -107,11 +116,14 @@
     | "case" <var> of (<pat> "->" <exp>)+;
 ```
 
-## Lambda Expressions
+## Lambda Calculus
 
 ``` EBNF
-<exp> ::= <const>
-    | <lower-var>
+<exp> ::= <lower-var>
+    | <int>
+    | <char>
+    | <bool>
+    | <str>
     | <prefix-op> <exp>
     | <exp> <infix-op> <exp>
     | <exp> <exp>

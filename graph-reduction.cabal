@@ -12,7 +12,9 @@ library
     exposed-modules:
         Lib,
         FlDef,
-        FlParser
+        FlParser,
+        ElcDef,
+        ElcTranslator
     build-depends:
         base ^>=4.16.2.0,
         megaparsec ^>=9.2.1,
@@ -44,7 +46,8 @@ test-suite test
     main-is:          Main.hs
     other-modules:
         TestRunner,
-        TestFlParser
+        TestFlParser,
+        TestElcTranslator
     build-depends:
         base ^>=4.16.2.0,
         graph-reduction
