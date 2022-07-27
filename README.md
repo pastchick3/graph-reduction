@@ -32,7 +32,7 @@
 
 <type> ::= "(" <type> ")"
     | <lower-var>
-    |"Int"
+    | "Int"
     | "Char"
     | "Bool"
     | "String"
@@ -64,9 +64,10 @@
 <adt-def> ::= "data" <upper-var> <type>* "=" <upper-var> <type>* ("|" <upper-var> <type>*)*;
 <type-def> ::= <lower-var> "::" <type>;
 <var-def> ::= <pat> "=" <exp>;
-<func-def> ::= <lower-var> <pat>+ (("|" <exp>)? "=" <exp>)+ "where" <var-def>+;
+<func-def> ::= <lower-var> <pat>+ (("|" <exp>)? "=" <exp>)+;
+<where> ::= "where" (<var-def> | <func-def>)+
 
-<def> ::= <adt-def> | <type-def> | <var-def> | <func-def>;
+<def> ::= <adt-def> | <type-def> | <var-def> | (<func-def> <where>?);
 <prog> ::= <def>+;
 ```
 
@@ -76,7 +77,7 @@
 | 7 | *, / | | |
 | 6 | +, - (both prefix and infix) | | |
 | 5 | | | :, ++|
-| 4 | | ==, /=, <, <=, >, >= | |
+| 4 | | ==, /=, <=, <, >=, > | |
 | 3 | | | && |
 | 2 | | | \|\| |
 

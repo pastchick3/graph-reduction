@@ -1,224 +1,220 @@
--- {-# LANGUAGE GADTs #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
 
 module FlParser (parseFl) where
 
-import FlDef qualified as Fl
-
 import Control.Monad.Combinators.Expr
-import Data.Bifunctor
-import Data.Foldable
+import Data.Bifunctor (first)
+import Data.Foldable (foldl')
 import Data.Void (Void)
+import FlDef
 import Text.Megaparsec hiding (parse)
 import Text.Megaparsec qualified as M (parse)
 import Text.Megaparsec.Char
-import Text.Megaparsec.Char.Lexer qualified as L
+import Text.Megaparsec.Char.Lexer (IndentOpt (IndentMany, IndentSome), decimal, indentBlock)
+
+parseFl :: String -> Either String Prog
+parseFl src = first errorBundlePretty (M.parse (space *> flProg <* eof) "" src)
 
 type Parser = Parsec Void String
+
+flSeq :: Parser a -> String -> Parser [a]
+flSeq parser sep = (:) <$> parser <*> many item <* hspace
+  where
+    item = string sep *> hspace *> parser
+
+flGroupSeq :: Char -> Parser a -> String -> Char -> Parser [a]
+flGroupSeq open parser sep close = start *> body <* end
+  where
+    start = char open *> hspace
+    body = flSeq parser sep <|> pure []
+    end = char close <* hspace
+
+flCtor :: Parser a -> Parser (Ctor a)
+flCtor parser = Ctor <$> flUpperVar <*> many parser
 
 flKeyword :: Parser String
 flKeyword =
     choice
-        [ string "case"
+        [ string "Int"
+        , string "Char"
+        , string "Bool"
+        , string "String"
+        , string "case"
         , string "of"
         , string "where"
         ]
+        <* hspace
 
-flSeq :: Parser a -> String -> Parser [a]
-flSeq p s = ((:) <$> p) <*> many (sep *> p)
-  where
-    sep = hspace *> string s *> hspace
+flLowerVar :: Parser LowerVar
+flLowerVar = notFollowedBy flKeyword >> LowerVar <$> ((:) <$> lowerChar <*> many alphaNumChar) <* hspace
 
-flGroupSeq :: Char -> Parser a -> Char -> Char -> Parser [a]
-flGroupSeq s p c e =
-    start
-        *> choice
-            [ [] <$ end
-            , flSeq p [c] <* end
-            ]
-  where
-    start = char s *> hspace
-    end = hspace <* char e
-
-flCtor :: Parser a -> Parser (Fl.Ctor a)
-flCtor p = Fl.Ctor <$> flUpperVar <* hspace <*> many (hspace *> p)
-
-flLowerVar :: Parser Fl.LowerVar
-flLowerVar = notFollowedBy flKeyword >> Fl.LowerVar <$> ((:) <$> lowerChar <*> many alphaNumChar)
-
-flUpperVar :: Parser Fl.UpperVar
-flUpperVar = Fl.UpperVar <$> ((:) <$> upperChar <*> many alphaNumChar)
+flUpperVar :: Parser UpperVar
+flUpperVar = notFollowedBy flKeyword >> UpperVar <$> ((:) <$> upperChar <*> many alphaNumChar) <* hspace
 
 flInt :: Parser Int
-flInt = L.decimal
+flInt = decimal <* hspace
 
 flChar :: Parser Char
-flChar = char '\'' *> (alphaNumChar <|> char ' ') <* char '\''
+flChar = char '\'' *> (alphaNumChar <|> char ' ') <* char '\'' <* hspace
 
 flBool :: Parser Bool
-flBool = True <$ string "True" <|> False <$ string "False"
+flBool = (True <$ string "True" <|> False <$ string "False") <* hspace
 
 flStr :: Parser String
-flStr = char '"' *> manyTill L.charLiteral (char '"')
+flStr = char '"' *> many (alphaNumChar <|> char ' ') <* char '"' <* hspace
 
-flPat :: Parser Fl.Pat
+flPat :: Parser Pat
 flPat =
     choice
-        [ Fl.PatVar <$> flLowerVar
-        , Fl.PatInt <$> flInt
-        , Fl.PatChar <$> flChar
-        , Fl.PatBool <$> flBool
-        , Fl.PatStr <$> flStr
-        , Fl.PatList <$> flGroupSeq '[' flPat ',' ']'
-        , Fl.PatTuple <$> flGroupSeq '(' flPat ',' ')'
-        , Fl.PatCtor <$> flCtor flPat
+        [ PatVar <$> flLowerVar
+        , PatInt <$> flInt
+        , PatChar <$> flChar
+        , PatBool <$> flBool
+        , PatStr <$> flStr
+        , PatList <$> flGroupSeq '[' flPat "," ']'
+        , PatTuple <$> flGroupSeq '(' flPat "," ')'
+        , PatCtor <$> flCtor flPat
         ]
-        <* hspace
 
-flType :: Parser Fl.Type
+flType :: Parser Type
 flType = do
     tys <- flSeq flType_ "->"
-    if length tys == 1 then pure (head tys) else pure (Fl.TyFunc tys)
+    if length tys == 1 then pure (head tys) else pure (TyFunc tys)
 
-flType_ :: Parser Fl.Type
+flType_ :: Parser Type
 flType_ =
     choice
-        [ try $ Fl.TyGroup <$ char '(' <* hspace <*> flType <* hspace <* char ')'
-        , Fl.TyVar <$> flLowerVar
-        , Fl.TyInt <$ string "Int"
-        , Fl.TyChar <$ string "Char"
-        , Fl.TyBool <$ string "Bool"
-        , Fl.TyStr <$ string "String"
-        , Fl.TyList <$ char '[' <*> flType <* char ']'
-        , Fl.TyTuple <$> flGroupSeq '(' flType ',' ')'
+        [ try $ TyGroup <$ char '(' <* hspace <*> flType <* char ')' <* hspace
+        , TyVar <$> flLowerVar
+        , TyInt <$ string "Int" <* hspace
+        , TyChar <$ string "Char" <* hspace
+        , TyBool <$ string "Bool" <* hspace
+        , TyStr <$ string "String" <* hspace
+        , TyList <$ char '[' <* hspace <*> flType <* char ']' <* hspace
+        , TyTuple <$> flGroupSeq '(' flType "," ')'
         ]
-        <* hspace
 
-flQualCl :: Parser Fl.QualCl
-flQualCl =
-    choice
-        [ try $ Fl.Gen <$> flPat <* sep <*> flExp
-        , Fl.Guard <$> flExp
-        ]
-  where
-    sep = hspace <* string "<-" <* hspace
+flExp :: Parser Exp
+flExp = makeExprParser flExp_ flTable
 
-flExpCase :: Parser Fl.Exp
-flExpCase = L.indentBlock space p
-  where
-    p = do
-        e <-  string "case" *> hspace *> flExp <* hspace <* string "of" <* hspace
-        return $ L.IndentMany Nothing (return . Fl.ExpCase e) (flCaseCl <* hspace)
-
-flCaseCl :: Parser Fl.CaseCl
-flCaseCl = L.indentBlock space p
-  where
-    p = do
-        pat <- flPat <* hspace
-        guard <- flGuardCl "->"
-        return $ L.IndentMany Nothing (\gs -> return $ Fl.CaseCl pat (guard:gs)) (flGuardCl "->" <* hspace)
-
-flGuardCl :: String -> Parser Fl.GuardCl
-flGuardCl s = Fl.GuardCl <$> guard <* sep <*> flExp <* hspace
-  where
-    guard = optional $ char '|' *> hspace *> flExp
-    sep = hspace <* string s <* hspace
-
-flExp_ :: Parser Fl.Exp
+flExp_ :: Parser Exp
 flExp_ = do
-    x : xs <- some (flExp__ <* hspace)
-    return $ foldl' Fl.ExpFuncApp x xs
+    subExp <- flExp__
+    case subExp of
+        ExpCase _ _ -> pure subExp
+        _ -> do
+            subExps <- many flExp__
+            pure $ foldl' ExpFuncApp subExp subExps
 
-flExp__ :: Parser Fl.Exp
+flExp__ :: Parser Exp
 flExp__ =
     choice
-        [ 
-        try $ Fl.ExpGroup <$ char '(' <* hspace <*> flExp <* hspace <* char ')'
-        , Fl.ExpVar <$> flLowerVar
-        , Fl.ExpInt <$> flInt
-        , Fl.ExpChar <$> flChar
-        , Fl.ExpBool <$> flBool
-        , Fl.ExpStr <$> flStr
-        , try $ Fl.ExpList <$> flGroupSeq '[' flExp ',' ']'
-        , Fl.ExpTuple <$> flGroupSeq '(' flExp ',' ')'
-        , Fl.ExpAdt <$> flCtor flExp
-        , Fl.ExpListComp <$ char '[' <* hspace <*> flExp <* hspace <* char '|' <* hspace <*> flSeq flQualCl "," <* hspace <* char ']'
+        [ try $ ExpGroup <$ char '(' <* hspace <*> flExp <* char ')' <* hspace
+        , ExpVar <$> flLowerVar
+        , ExpInt <$> flInt
+        , ExpChar <$> flChar
+        , ExpBool <$> flBool
+        , ExpStr <$> flStr
+        , try $ ExpList <$> flGroupSeq '[' flExp "," ']'
+        , ExpTuple <$> flGroupSeq '(' flExp "," ')'
+        , ExpAdt <$> flCtor flExp
+        , ExpListComp <$ start <*> flExp <* sep <*> flSeq flQualCl "," <* end
         , lookAhead (string "case") *> flExpCase
         ]
-        <* hspace
+  where
+    start = char '[' <* hspace
+    sep = char '|' <* hspace
+    end = char ']' <* hspace
 
-flExp :: Parser Fl.Exp
-flExp = makeExprParser flExp_ table
+flQualCl :: Parser QualCl
+flQualCl =
+    choice
+        [ try $ Gen <$> flPat <* string "<-" <* hspace <*> flExp
+        , Guard <$> flExp
+        ]
 
-table :: [[Operator Parser Fl.Exp]]
-table =
+flExpCase :: Parser Exp
+flExpCase = indentBlock space parser
+  where
+    parser = do
+        value <- string "case" *> hspace *> flExp <* string "of" <* hspace
+        pure $ IndentSome Nothing (return . ExpCase value) flCaseCl
+
+flCaseCl :: Parser CaseCl
+flCaseCl = indentBlock space parser
+  where
+    parser = do
+        pat <- flPat
+        guard <- flGuardCl "->"
+        pure $ IndentMany Nothing (pure . CaseCl pat . (:) guard) (flGuardCl "->")
+
+flGuardCl :: String -> Parser GuardCl
+flGuardCl sep = GuardCl <$> guard <* string sep <* hspace <*> flExp
+  where
+    guard = optional $ char '|' *> hspace *> flExp
+
+flTable :: [[Operator Parser Exp]]
+flTable =
     [
-        [ InfixL $ Fl.ExpInfix Fl.Index <$ op "!!"
-        , Prefix $ Fl.ExpPrefix Fl.Not <$ op "not"
+        [ InfixL $ ExpInfix Index <$ op "!!"
+        , Prefix $ ExpPrefix Not <$ op "not"
         ]
     ,
-        [ InfixL $ Fl.ExpInfix Fl.Mul <$ op "*"
-        , InfixL $ try $ Fl.ExpInfix Fl.Div <$ op "/" <* notFollowedBy (char '=')
+        [ InfixL $ ExpInfix Mul <$ op "*"
+        , InfixL $ ExpInfix Div <$ notFollowedBy (string "/=") <* op "/"
         ]
     ,
-        [ InfixL $ try $ Fl.ExpInfix Fl.Plus <$ op "+" <* notFollowedBy (char '+')
-        , InfixL $ Fl.ExpInfix Fl.Minus <$ hspace <* notFollowedBy (string "->") <* char '-' <* hspace
-        , Prefix $ Fl.ExpPrefix Fl.Neg <$ op "-"
+        [ InfixL $ ExpInfix Plus <$ notFollowedBy (string "++") <* op "+"
+        , InfixL $ ExpInfix Minus <$ notFollowedBy (string "->") <* op "-"
+        , Prefix $ ExpPrefix Neg <$ char '-'
         ]
     ,
-        [ InfixR $ Fl.ExpInfix Fl.Cons <$ op ":"
-        , InfixR $ Fl.ExpInfix Fl.Concat <$ op "++"
+        [ InfixR $ ExpInfix Cons <$ op ":"
+        , InfixR $ ExpInfix Concat <$ op "++"
         ]
     ,
-        [ InfixN $ Fl.ExpInfix Fl.Eq <$ op "=="
-        , InfixN $ Fl.ExpInfix Fl.NotEq <$ op "/="
-        , InfixN $ try $ Fl.ExpInfix Fl.Ls <$ op "<" <* notFollowedBy (char '=')
-        , InfixN $ Fl.ExpInfix Fl.Lse <$ op "<="
-        , InfixN $ try $ Fl.ExpInfix Fl.Gt <$ op ">"  <* notFollowedBy (char '=')
-        , InfixN $ Fl.ExpInfix Fl.Gte <$ op ">="
+        [ InfixN $ ExpInfix Eq <$ op "=="
+        , InfixN $ ExpInfix NotEq <$ op "/="
+        , InfixN $ ExpInfix Lse <$ op "<="
+        , InfixN $ ExpInfix Ls <$ op "<"
+        , InfixN $ ExpInfix Gte <$ op ">="
+        , InfixN $ ExpInfix Gt <$ op ">"
         ]
     ,
-        [ InfixR $ Fl.ExpInfix Fl.And <$ op "&&"
+        [ InfixR $ ExpInfix And <$ op "&&"
         ]
     ,
-        [ InfixR $ Fl.ExpInfix Fl.Or <$ op "||"
+        [ InfixR $ ExpInfix Or <$ op "||"
         ]
     ]
   where
-    op s = hspace <* string s <* hspace
+    op s = string s <* hspace
 
-
-flDefFunc :: Parser Fl.Def
-flDefFunc = L.indentBlock space p <*> flWhere
-  where
-    p = do
-        name <- flLowerVar 
-        args <- many (hspace *> flPat)  <* hspace
-        guard <- flGuardCl "="
-        -- return $ L.IndentMany Nothing (\gs -> return $ Fl.DefFunc name args (guard:gs)) (flGuardCl "=" <* hspace)
-        l <- L.indentLevel
-        _ <- error $ show l
-        return $ L.IndentMany Nothing (\gs -> return $ Fl.DefFunc name args (guard:gs)) (flGuardCl "=" <* hspace)
-
-flWhere :: Parser [Fl.Def]
-flWhere = (lookAhead (string "where") *> L.indentBlock space p) <|> pure []
-  where
-    p = do
-      _ <- string "where" <* hspace
-      return (L.IndentMany Nothing return (flDef <* hspace)) 
-
-flDef :: Parser Fl.Def
-flDef = 
+flDef :: Parser Def
+flDef =
     choice
-        [ Fl.DefAdt <$ string "data" <* hspace <*> flUpperVar <* hspace <*> many (flType<* hspace) <* char '=' <* hspace <*> flSeq (flCtor flType) "|"
-        , try $ Fl.DefType <$> flLowerVar <* hspace <* string "::" <* hspace <*> flType
-        , try $ Fl.DefVar <$> flPat <* hspace <* char '=' <* hspace <*> flExp
+        [ DefAdt <$ string "data" <* hspace <*> flUpperVar <*> many flType <* char '=' <* hspace <*> flSeq (flCtor flType) "|"
+        , try $ DefType <$> flLowerVar <* string "::" <* hspace <*> flType
+        , try $ DefVar <$> flPat <* char '=' <* hspace <*> flExp
         , flDefFunc
         ]
         <* space
 
-flProg :: Parser Fl.Prog
-flProg = Fl.Prog <$> many flDef <* hspace
+flDefFunc :: Parser Def
+flDefFunc = indentBlock space parser <*> flWhere
+  where
+    parser = do
+        name <- flLowerVar
+        args <- many flPat
+        guard <- flGuardCl "="
+        pure $ IndentMany Nothing (pure . DefFunc name args . (:) guard) (flGuardCl "=")
 
-parseFl :: String -> Either String Fl.Prog
-parseFl src = first errorBundlePretty (M.parse (hspace *> flProg <* eof) "" src)
+flWhere :: Parser [Def]
+flWhere = indentBlock space parser <|> pure []
+  where
+    parser = do
+        _ <- string "where" <* hspace
+        pure $ IndentSome Nothing pure flDef
+
+flProg :: Parser Prog
+flProg = Prog <$> many flDef

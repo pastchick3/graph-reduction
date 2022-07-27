@@ -5,5 +5,5 @@ import TestFlParser (testFlParser)
 
 main :: IO ()
 main = do
-  testFlParser
-  exitSuccess
+    testFlParser
+    exitSuccess
