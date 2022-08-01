@@ -18,19 +18,19 @@ parseFl src = first errorBundlePretty (M.parse (space *> flProg <* eof) "" src)
 type Parser = Parsec Void String
 
 flSeq :: Parser a -> String -> Parser [a]
-flSeq parser sep = (:) <$> parser <*> many item <* hspace
+flSeq parser sep = (:) <$> parser <*> many item <* hspace <?> "Seq"
   where
     item = string sep *> hspace *> parser
 
 flGroupSeq :: Char -> Parser a -> String -> Char -> Parser [a]
-flGroupSeq open parser sep close = start *> body <* end
+flGroupSeq open parser sep close = start *> body <* end <?> "GroupSeq"
   where
     start = char open *> hspace
     body = flSeq parser sep <|> pure []
     end = char close <* hspace
 
 flCtor :: Parser a -> Parser (Ctor a)
-flCtor parser = Ctor <$> flUpperVar <*> many parser
+flCtor parser = Ctor <$> flUpperVar <*> many parser <?> "Ctor"
 
 flKeyword :: Parser String
 flKeyword =
@@ -44,24 +44,25 @@ flKeyword =
         , string "where"
         ]
         <* hspace
+        <?> "Keyword"
 
 flLowerVar :: Parser LowerVar
-flLowerVar = notFollowedBy flKeyword >> LowerVar <$> ((:) <$> lowerChar <*> many alphaNumChar) <* hspace
+flLowerVar = notFollowedBy flKeyword >> LowerVar <$> ((:) <$> lowerChar <*> many alphaNumChar) <* hspace <?> "LowerVar"
 
 flUpperVar :: Parser UpperVar
-flUpperVar = notFollowedBy flKeyword >> UpperVar <$> ((:) <$> upperChar <*> many alphaNumChar) <* hspace
+flUpperVar = notFollowedBy flKeyword >> UpperVar <$> ((:) <$> upperChar <*> many alphaNumChar) <* hspace <?> "UpperVar"
 
 flInt :: Parser Int
-flInt = decimal <* hspace
+flInt = decimal <* hspace <?> "Int"
 
 flChar :: Parser Char
-flChar = char '\'' *> (alphaNumChar <|> char ' ') <* char '\'' <* hspace
+flChar = char '\'' *> (alphaNumChar <|> char ' ') <* char '\'' <* hspace <?> "Char"
 
 flBool :: Parser Bool
-flBool = (True <$ string "True" <|> False <$ string "False") <* hspace
+flBool = (True <$ string "True" <|> False <$ string "False") <* hspace <?> "Bool"
 
 flStr :: Parser String
-flStr = char '"' *> many (alphaNumChar <|> char ' ') <* char '"' <* hspace
+flStr = char '"' *> many (alphaNumChar <|> char ' ') <* char '"' <* hspace <?> "Str"
 
 flPat :: Parser Pat
 flPat =
@@ -75,9 +76,10 @@ flPat =
         , PatTuple <$> flGroupSeq '(' flPat "," ')'
         , PatCtor <$> flCtor flPat
         ]
+        <?> "Pat"
 
 flType :: Parser Type
-flType = do
+flType = label "Type" $ do
     tys <- flSeq flType_ "->"
     if length tys == 1 then pure (head tys) else pure (TyFunc tys)
 
@@ -93,12 +95,13 @@ flType_ =
         , TyList <$ char '[' <* hspace <*> flType <* char ']' <* hspace
         , TyTuple <$> flGroupSeq '(' flType "," ')'
         ]
+        <?> "Type_"
 
 flExp :: Parser Exp
-flExp = makeExprParser flExp_ flTable
+flExp = makeExprParser flExp_ flTable <?> "Exp"
 
 flExp_ :: Parser Exp
-flExp_ = do
+flExp_ = label "Exp_" $ do
     subExp <- flExp__
     case subExp of
         ExpCase _ _ -> pure subExp
@@ -121,6 +124,7 @@ flExp__ =
         , ExpListComp <$ start <*> flExp <* sep <*> flSeq flQualCl "," <* end
         , lookAhead (string "case") *> flExpCase
         ]
+        <?> "Exp__"
   where
     start = char '[' <* hspace
     sep = char '|' <* hspace
@@ -132,16 +136,17 @@ flQualCl =
         [ try $ Gen <$> flPat <* string "<-" <* hspace <*> flExp
         , Guard <$> flExp
         ]
+        <?> "QualCl"
 
 flExpCase :: Parser Exp
-flExpCase = indentBlock space parser
+flExpCase = indentBlock space parser <?> "ExpCase"
   where
     parser = do
         value <- string "case" *> hspace *> flExp <* string "of" <* hspace
         pure $ IndentSome Nothing (return . ExpCase value) flCaseCl
 
 flCaseCl :: Parser CaseCl
-flCaseCl = indentBlock space parser
+flCaseCl = indentBlock space parser <?> "CaseCl"
   where
     parser = do
         pat <- flPat
@@ -149,7 +154,7 @@ flCaseCl = indentBlock space parser
         pure $ IndentMany Nothing (pure . CaseCl pat . (:) guard) (flGuardCl "->")
 
 flGuardCl :: String -> Parser GuardCl
-flGuardCl sep = GuardCl <$> guard <* string sep <* hspace <*> flExp
+flGuardCl sep = GuardCl <$> guard <* string sep <* hspace <*> flExp <?> "GuardCl"
   where
     guard = optional $ char '|' *> hspace *> flExp
 
@@ -199,9 +204,10 @@ flDef =
         , flDefFunc
         ]
         <* space
+        <?> "Def"
 
 flDefFunc :: Parser Def
-flDefFunc = indentBlock space parser <*> flWhere
+flDefFunc = indentBlock space parser <*> flWhere <?> "DefFunc"
   where
     parser = do
         name <- flLowerVar
@@ -210,11 +216,11 @@ flDefFunc = indentBlock space parser <*> flWhere
         pure $ IndentMany Nothing (pure . DefFunc name args . (:) guard) (flGuardCl "=")
 
 flWhere :: Parser [Def]
-flWhere = indentBlock space parser <|> pure []
+flWhere = indentBlock space parser <|> pure [] <?> "Where"
   where
     parser = do
         _ <- string "where" <* hspace
         pure $ IndentSome Nothing pure flDef
 
 flProg :: Parser Prog
-flProg = Prog <$> many flDef
+flProg = Prog <$> many flDef <?> "Prog"
